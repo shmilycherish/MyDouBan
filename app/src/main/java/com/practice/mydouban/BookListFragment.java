@@ -2,7 +2,7 @@ package com.practice.mydouban;
 
 import android.app.Fragment;
 import android.content.Context;
-import android.graphics.BitmapFactory;
+import android.graphics.Bitmap;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -13,8 +13,6 @@ import android.widget.ImageView;
 import android.widget.ListView;
 import android.widget.RatingBar;
 import android.widget.TextView;
-
-import org.w3c.dom.Text;
 
 import java.util.List;
 
@@ -74,7 +72,7 @@ public class BookListFragment extends Fragment {
 
         @Override
         public View getView(int position, View convertView, ViewGroup parent) {
-            ViewHolder viewHolder;
+            final ViewHolder viewHolder;
             if (convertView == null) {
                 viewHolder = new ViewHolder();
                 convertView = LayoutInflater.from(context).inflate(R.layout.list_item_book, parent, false);
@@ -89,7 +87,16 @@ public class BookListFragment extends Fragment {
 
             final Book book = getItem(position);
 
-            viewHolder.bookCover.setImageBitmap(BitmapFactory.decodeResource(context.getResources(), R.drawable.ic_default_cover));
+            viewHolder.bookCover.setTag(book.getImage().hashCode());
+            ImageLoader.loadImage(book.getImage(), new ImageLoader.ImageLoaderListener() {
+                @Override
+                public void onImageLoaded(Bitmap bitmap) {
+
+                    if (bitmap != null && viewHolder.bookCover.getTag().equals(book.getImage().hashCode())) {
+                        viewHolder.bookCover.setImageBitmap(bitmap);
+                    }
+                }
+            });
             viewHolder.bookName.setText(book.getTitle());
             viewHolder.rating.setRating((float) (book.getRating() / 2));
             viewHolder.bookInfo.setText(book.getInformation());
