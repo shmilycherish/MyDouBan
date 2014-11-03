@@ -13,22 +13,25 @@ import android.view.ViewGroup;
 import android.widget.AbsListView;
 import android.widget.BaseAdapter;
 import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.RatingBar;
 import android.widget.TextView;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import static android.view.View.GONE;
+import static android.view.View.VISIBLE;
+
 public class BookListFragment extends Fragment implements SwipeRefreshLayout.OnRefreshListener {
 
 
-    private static final String BOOU_URL = "http://api.douban.com/v2/book/search?tag=%s&count=%d&start=%d";
+    private static final String BOOK_URL = "http://api.douban.com/v2/book/search?tag=%s&count=%d&start=%d";
     private SwipeRefreshLayout swipeRefreshLayout;
-    private MyBookListAdapter adapter;
-    private boolean isLoaing;
+    private BookListAdapter adapter;
+    private boolean isLoading;
     private boolean hasMoreItem;
-    private ListView bookList;
+    private AbsListView bookListView;
+    private View loadingMoreView;
 
     public BookListFragment() {
     }
@@ -45,9 +48,9 @@ public class BookListFragment extends Fragment implements SwipeRefreshLayout.OnR
                 android.R.color.holo_red_light);
         swipeRefreshLayout.setOnRefreshListener(this);
 
-        bookList = (ListView) rootView.findViewById(R.id.bookList);
+        bookListView = (AbsListView) rootView.findViewById(R.id.bookList);
 
-        bookList.setOnScrollListener(new ListView.OnScrollListener() {
+        bookListView.setOnScrollListener(new AbsListView.OnScrollListener() {
             @Override
             public void onScrollStateChanged(AbsListView view, int scrollState) {
 
@@ -57,48 +60,66 @@ public class BookListFragment extends Fragment implements SwipeRefreshLayout.OnR
             public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
                 if (totalItemCount > 0) {
                     int lastVisibleItem = firstVisibleItem + visibleItemCount;
-                    if (!isLoaing && hasMoreItem && (lastVisibleItem == totalItemCount)) {
+                    if (!isLoading && hasMoreItem && (lastVisibleItem == totalItemCount)) {
                         doLoadMore();
                     }
                 }
             }
         });
 
-        adapter = new MyBookListAdapter(getActivity());
-        bookList.setAdapter(adapter);
+        loadingMoreView = rootView.findViewById(R.id.loading_more);
+        hideLoadingMoreView();
+        adapter = new BookListAdapter(getActivity());
+        bookListView.setAdapter(adapter);
 
-        doRefresh();
+        if (savedInstanceState == null) {
+            doRefresh();
+        } else {
+            hasMoreItem = savedInstanceState.getBoolean("hasMore");
+            adapter.addAll(savedInstanceState.<Book>getParcelableArrayList("bookData"));
+            bookListView.smoothScrollToPosition(savedInstanceState.getInt("firstVisiblePosition"));
+        }
         return rootView;
     }
 
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+        outState.putBoolean("hasMore", hasMoreItem);
+        outState.putInt("firstVisiblePosition", bookListView.getFirstVisiblePosition());
+        outState.putParcelableArrayList("bookData", (ArrayList<? extends android.os.Parcelable>) adapter.getAll());
+    }
+
     private void doLoadMore() {
-        new AsyncTask<String, Void, Books>() {
+        new AsyncTask<String, Void, BooksData>() {
 
             @Override
             protected void onPreExecute() {
                 super.onPreExecute();
-                isLoaing = true;
+                isLoading = true;
+                showLoadingMoreView();
             }
 
             @Override
-            protected Books doInBackground(String... params) {
+            protected BooksData doInBackground(String... params) {
                 String urlStr = params[0];
-                return new Books(DataFetcher.readDataFromFile(urlStr));
+                return new BooksData(DataFetcher.readDataFromFile(urlStr));
             }
 
             @Override
-            protected void onPostExecute(Books books) {
+            protected void onPostExecute(BooksData books) {
                 super.onPostExecute(books);
                 adapter.addAll(books.getBooks());
-                hasMoreItem = books.getTotal() - bookList.getCount() > 0;
-                isLoaing = false;
+                hasMoreItem = books.getTotal() - bookListView.getCount() > 0;
+                isLoading = false;
+                hideLoadingMoreView();
             }
-        }.execute(getUrl(bookList.getCount()));
+        }.execute(getUrl(bookListView.getCount()));
 
     }
 
     private void doRefresh() {
-        new AsyncTask<String, Void, Books>() {
+        new AsyncTask<String, Void, BooksData>() {
 
             @Override
             protected void onPreExecute() {
@@ -107,24 +128,32 @@ public class BookListFragment extends Fragment implements SwipeRefreshLayout.OnR
             }
 
             @Override
-            protected Books doInBackground(String... params) {
+            protected BooksData doInBackground(String... params) {
                 String urlStr = params[0];
-                return new Books(DataFetcher.readDataFromFile(urlStr));
+                return new BooksData(DataFetcher.readDataFromFile(urlStr));
             }
 
             @Override
-            protected void onPostExecute(Books books) {
+            protected void onPostExecute(BooksData books) {
                 super.onPostExecute(books);
                 adapter.clear();
                 adapter.addAll(books.getBooks());
-                hasMoreItem = books.getTotal() - bookList.getCount() > 0;
+                hasMoreItem = books.getTotal() - bookListView.getCount() > 0;
                 swipeRefreshLayout.setRefreshing(false);
             }
         }.execute(getUrl(0));
     }
 
+    private void hideLoadingMoreView() {
+        loadingMoreView.setVisibility(GONE);
+    }
+
+    private void showLoadingMoreView() {
+        loadingMoreView.setVisibility(VISIBLE);
+    }
+
     private String getUrl(int start) {
-        return String.format(BOOU_URL, Uri.encode("编程"), 20, start);
+        return String.format(BOOK_URL, Uri.encode("编程"), 20, start);
     }
 
     @Override
@@ -132,11 +161,11 @@ public class BookListFragment extends Fragment implements SwipeRefreshLayout.OnR
         doRefresh();
     }
 
-    static class MyBookListAdapter extends BaseAdapter {
+    static class BookListAdapter extends BaseAdapter {
         private List<Book> books;
         private Context context;
 
-        MyBookListAdapter(Context context) {
+        BookListAdapter(Context context) {
             this.books = new ArrayList<Book>();
 
             this.context = context;
@@ -199,6 +228,10 @@ public class BookListFragment extends Fragment implements SwipeRefreshLayout.OnR
         public void clear() {
             this.books.clear();
             notifyDataSetChanged();
+        }
+
+        public List<Book> getAll() {
+            return books;
         }
     }
 

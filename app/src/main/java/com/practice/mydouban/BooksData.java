@@ -9,10 +9,10 @@ import java.util.List;
 /**
  * Created by cyang on 10/20/14.
  */
-public class Books {
+public class BooksData {
     private JSONObject jsonData;
 
-    public Books(JSONObject jsonData) {
+    public BooksData(JSONObject jsonData) {
 
         this.jsonData = jsonData;
     }

@@ -1,8 +1,29 @@
 package com.practice.mydouban;
 
+import android.os.Parcel;
+import android.os.Parcelable;
 import android.text.TextUtils;
 
-public class Book {
+public class Book implements Parcelable {
+    public static final Creator CREATOR = new Creator<Book>() {
+        @Override
+        public Book createFromParcel(Parcel source) {
+            Book book = new Book();
+            book.title = source.readString();
+            book.image = source.readString();
+            book.author = source.readString();
+            book.publisher = source.readString();
+            book.publishDate = source.readString();
+            book.summary = source.readString();
+            book.rating = source.readDouble();
+            return book;
+        }
+
+        @Override
+        public Book[] newArray(int size) {
+            return new Book[size];
+        }
+    };
     public String title;
     public String image;
     public String author;
@@ -11,7 +32,7 @@ public class Book {
     public String summary;
     public double rating;
 
-    public Book(String title, String image, String author, String publisher, String publishDate, String summary, double rating) {
+    public Book(String title, String image, String author, String publisher, String publishDate, String summary, Double rating) {
         this.title = title;
         this.image = image;
         this.author = author;
@@ -19,6 +40,10 @@ public class Book {
         this.publishDate = publishDate;
         this.summary = summary;
         this.rating = rating;
+    }
+
+    public Book() {
+
     }
 
     public String getTitle() {
@@ -53,5 +78,21 @@ public class Book {
         return TextUtils.join("/", new String[]{
                 getAuthor(), getPublisher(), getPublishDate()
         });
+    }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeString(title);
+        dest.writeString(image);
+        dest.writeString(author);
+        dest.writeString(publisher);
+        dest.writeString(publishDate);
+        dest.writeString(summary);
+        dest.writeDouble(rating);
     }
 }
